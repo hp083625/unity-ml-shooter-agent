@@ -1,0 +1,60 @@
+# Docs-only repository — explicitly ignore everything except design docs.
+# When implementation begins, replace this with a proper Unity .gitignore.
+
+# Allow nothing by default
+*
+
+# Re-allow design docs
+!.gitignore
+!README.md
+!CLAUDE.md
+!CONTEXT.md
+!SCOPE.md
+!docs/
+!docs/**
+
+# Defensive — never accept these even if a future rule allows them
+Library/
+Temp/
+Logs/
+UserSettings/
+Build/
+Builds/
+obj/
+*.csproj
+*.sln
+*.unitypackage
+*.apk
+*.aab
+*.app
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Never commit Infima Games assets (third-party, EULA-protected)
+Assets/
+Packages/
+ProjectSettings/
+
+# Never commit any Unity scene, prefab, asset binary
+*.unity
+*.prefab
+*.asset
+*.fbx
+*.png
+*.jpg
+*.tga
+*.wav
+*.mp3
+*.mat
+*.controller
+*.anim
+*.shader
+*.cginc
+*.hlsl
+*.compute
+*.physicMaterial
+*.physicsMaterial2D
+*.meta
