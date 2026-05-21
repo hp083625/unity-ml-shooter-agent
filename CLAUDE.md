@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Unity **2022.3.58f1** project built around the Infima Games **Low Poly Shooter Pack — Free Sample** (a first-person shooter starter). All gameplay code lives under `Assets/Infima Games/` and shares the namespace `InfimaGames.LowPolyShooterPack`. There is no custom assembly definition — everything compiles into `Assembly-CSharp`.
+Unity **6 LTS** project (formerly 2022.3.58f1; upgraded per [ADR-0007](./docs/adr/0007-upgrade-to-unity-6.md)) built around the Infima Games **Low Poly Shooter Pack — Free Sample** (a first-person shooter starter). All gameplay code lives under `Assets/Infima Games/` and shares the namespace `InfimaGames.LowPolyShooterPack`. There is no custom assembly definition — everything compiles into `Assembly-CSharp`.
 
 Two scenes ship in the repo:
 - `Assets/Scenes/SampleScene.unity` — Unity's default empty scene.
@@ -74,3 +74,17 @@ From `Packages/manifest.json`:
 - `com.unity.postprocessing` 3.4.0 — built-in render pipeline + PPv2, **not** URP/HDRP.
 - `com.unity.test-framework` 1.1.33 — there are currently no test assemblies in `Assets/`; if you add one, place it under a folder with an `.asmdef` referencing `nunit.framework`.
 - `com.coplaydev.unity-mcp` — provides the `UnityMCP` tooling described above.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live in GitHub Issues on `hp083625/unity-ml-shooter-agent`, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

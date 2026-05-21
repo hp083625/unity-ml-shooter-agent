@@ -20,14 +20,35 @@ agent's raycasts perceive.
 
 ---
 
+## Phase 0 — Unity 6 upgrade (ADR-0007)
+
+**Open the project in Unity 6 LTS** (latest 6000.0.x). Accept the
+auto-migration prompt. Expected work:
+
+- Compile errors from API removals (most likely in `com.unity.postprocessing`
+  3.4.0 — PPv2 is legacy on U6 but should still compile). Fix or replace
+  with Volume Framework if broken.
+- Input System asset format may need re-import — open `IA_Player.inputactions`
+  in the inspector; let Unity refresh.
+- Animator Controllers should migrate cleanly.
+- Verify `com.coplaydev.unity-mcp` works on U6 (the live MCP bridge).
+  If it doesn't, agent work continues without live scene introspection
+  (file-based workflow only).
+- Estimated time: **0.5–1 day** of one-time fix-up.
+
+**Validation gate:** open `S_Content_Overview`, press Play, fire weapon,
+hit a target. If the original demo still plays, U6 is good. If not, fix
+breakage before any agent work.
+
 ## Prerequisites (one-time setup)
 
 | # | Item | Notes |
 |---|------|-------|
-| P1 | Install Unity packages: `com.unity.ml-agents` (latest 2.x for Unity 2022.3 LTS), `com.unity.sentis` (latest 2.x) | Add to `Packages/manifest.json`. Verify both compile cleanly via `read_console`. |
-| P2 | Create Python venv with `mlagents` package | Use `pyenv` to pin Python 3.10. `pip install mlagents`. Verify `mlagents-learn --help` works. |
+| P1 | Install Unity packages (per ADR-0007): `com.unity.ml-agents` 4.0.0 (Release 23). The Inference Engine 2.2.1 runtime is bundled — no separate Sentis package needed. | Add to `Packages/manifest.json`. Verify compile via `read_console`. |
+| P2 | Create Python venv pinned to **Python 3.10.12**. `pip install mlagents==1.1.0`. Verify `mlagents-learn --help` works. | Use `pyenv` for the Python pin. PyTorch will be pulled in as `~=2.2.1`. |
 | P3 | Create `Assets/Tests/PlayMode/` with `.asmdef` referencing `nunit.framework`, `UnityEngine.TestRunner`, `UnityEditor.TestRunner` | Per CLAUDE.md, the project currently has no test assemblies. |
-| P4 | Add `"Wall"` and `"Target"` tags already exist in `TagManager.asset` (verified). No tag work needed. | — |
+| P4 | **ONNX-import smoke test.** Train the official `3DBall` example for ~30s in this venv against a 3DBall scene; import the resulting `.onnx` into the project; confirm the model loads without `NullReferenceException`. | Defensive check: bug #6293 hits Unity 2022.3 only, but verifying on U6 takes 5 minutes and proves the toolchain end-to-end before we invest in the real environment. |
+| P5 | Tags `"Wall"` and `"Target"` already exist in `TagManager.asset` (verified). No tag work needed. | — |
 
 ---
 
@@ -124,8 +145,11 @@ agent's raycasts perceive.
 **New files:**
 - `Assets/Scripts/Agent/AgentShooter.cs` — subclass of `Unity.MLAgents.Agent`.
 
-  - **Sensors (auto-collected by ML-Agents):**
-    - `RayPerceptionSensorComponent3D` configured: `RaysPerDirection: 8` (= 17 horizontal rays), `StackedRaycasts: 3`, `MaxRayDegrees: 70`, `RayLength: 50`, `DetectableTags: ["Target", "Wall", "ExplosiveBarrel"]`. **51 rays total.**
+  - **Sensors (auto-collected by ML-Agents) — three components for vertical fan:**
+    - **3× `RayPerceptionSensorComponent3D`** on the Agent GameObject. `RaysPerDirection: 8` (= 17 horizontal rays per component), `MaxRayDegrees: 70`, `RayLength: 50`, `DetectableTags: ["Target", "Wall", "ExplosiveBarrel"]`, `UseBatchedRaycasts: true` (Unity Job System for the casts).
+    - The three components differ only in their `StartVerticalOffset` / `EndVerticalOffset`: e.g. `(+0.5, +0.5)` for the upper layer, `(0, 0)` for middle, `(-0.5, -0.5)` for lower — tuned during Phase 5 to cover the target height range.
+    - **`ObservationStacks: 1`** (this is *temporal* stacking — memory of past frames — and is unrelated to the vertical fan; leave it at the default).
+    - **51 rays total, ~255 floats from rays** (formula: `ObservationStacks × (1 + 2 × RaysPerDirection) × (numTags + 2)` per component, summed).
 
   - **`CollectObservations(VectorSensor sensor)`:**
     - Local-space agent velocity XZ (2 floats from `Rigidbody.velocity` transformed to local).
@@ -175,18 +199,24 @@ agent's raycasts perceive.
 
 **New files / scenes:**
 - `Assets/Scenes/Training/S_Training.unity` — flat plane, 8 instances of `TrainingArea` prefab spaced 60m apart in a 4×2 grid. Add to Build Settings.
-- `Assets/Scripts/Agent/TrainingConfig/shooter.yaml` (canonical PPO config):
+- `Assets/Scripts/Agent/TrainingConfig/shooter.yaml` (PPO config — values
+  cross-checked against the current Walker/Pyramids configs on the
+  ML-Agents `release_23` branch):
 
   ```yaml
+  default_settings:
+    engine_settings:
+      time_scale: 20
+
   behaviors:
     Shooter:
       trainer_type: ppo
       hyperparameters:
-        batch_size: 1024
-        buffer_size: 10240
+        batch_size: 2048          # was 1024 — Walker-scale for continuous-dominant control
+        buffer_size: 20480        # was 10240 — match raised batch
         learning_rate: 3.0e-4
         learning_rate_schedule: linear
-        beta: 5.0e-3
+        beta: 0.01                # was 5.0e-3 — Pyramids-scale; preserves entropy on sparse fire action
         epsilon: 0.2
         lambd: 0.95
         num_epoch: 3
@@ -204,8 +234,8 @@ agent's raycasts perceive.
           gamma: 0.99
           encoding_size: 256
           learning_rate: 3.0e-4
-      max_steps: 2.0e6
-      time_horizon: 64
+      max_steps: 1.0e7            # was 2.0e6 — Pyramids-scale for sparse-reward task with 8 areas
+      time_horizon: 128           # was 64 — sparse rewards need longer GAE rollouts
       summary_freq: 10000
       keep_checkpoints: 5
       checkpoint_interval: 100000
@@ -311,7 +341,16 @@ ProjectSettings/EditorBuildSettings.asset          (add S_Training scene)
 
 6. **Agent spawning collision.** Re-spawning the player Rigidbody mid-FixedUpdate can cause the physics step to glitch. **Mitigation:** zero velocity + use `Rigidbody.position` (not `transform.position`) inside `OnEpisodeBegin()`.
 
-7. **ML-Agents / Sentis version compatibility.** ML-Agents historically shipped its own inference path (Barracuda); newer versions integrate Sentis but support varies by version. **Verify in P1 setup** that the chosen ML-Agents package version reads `.onnx` via Sentis or its own runtime correctly.
+7. **ML-Agents toolchain compatibility verified May 2026.** Pinned versions
+   per ADR-0007: Unity 6 + `com.unity.ml-agents` 4.0.0 + `mlagents` 1.1.0
+   + Python 3.10.12 + PyTorch ~=2.2.1. P4 prerequisite trains a 3DBall
+   ONNX and confirms it imports — proves the toolchain before we invest
+   in the real environment.
+
+8. **Infima Games asset on Unity 6.** The pack was published for Unity
+   2021/2022. Auto-migration is *probably* clean but `com.unity.postprocessing`
+   3.4.0 is legacy on U6 and the pack's animators/shaders may have minor
+   breakage. Phase 0 owns this fix-up.
 
 ---
 
@@ -319,6 +358,8 @@ ProjectSettings/EditorBuildSettings.asset          (add S_Training scene)
 
 | After phase | Gate |
 |---|---|
+| 0 | Project opens cleanly in Unity 6; demo scene still plays. |
+| P4 | A trivial 3DBall ONNX trained in the venv imports cleanly into Unity 6. |
 | 1 | Demo scene plays unchanged. |
 | 2 | Demo scene plays unchanged. Setters compile and write fields. |
 | 3 | Bridge ContextMenu test moves player as expected. Toggling `useAIInput` cleanly hands off between human and AI. |
@@ -333,10 +374,11 @@ ProjectSettings/EditorBuildSettings.asset          (add S_Training scene)
 
 | Phase | Calendar effort | Risk |
 |---|---|---|
-| P1–P3 setup | 0.5 day | low |
+| P0 (Unity 6 upgrade) | 0.5–1 day | medium (Infima asset compat) |
+| P1–P5 setup (incl. ONNX smoke test) | 0.5 day | low |
 | Phases 1–2 | 0.5 day | low |
 | Phases 3–4 | 1 day | medium (target reset, prefab wiring) |
 | Phase 5 | 1.5 days | **high — the heuristic gate decides everything** |
 | Phase 6 | 0.5 day setup + 1–4 hours training | medium |
 | Phase 7 | 0.5 day | low |
-| **Total** | **~4–5 days** | — |
+| **Total** | **~4.5–6 days** | — |

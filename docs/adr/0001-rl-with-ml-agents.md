@@ -1,6 +1,6 @@
 # ADR-0001: Use ML-Agents + PPO for the shooter agent
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [ADR-0007](./0007-upgrade-to-unity-6.md) (2026-05-21)
 - **Date:** 2026-05-21
 
 ## Context
@@ -33,10 +33,11 @@ rewarded for hitting targets.
 
 ## Consequences
 
-- New package dependencies: `com.unity.ml-agents` (training+inference shim)
-  and `com.unity.sentis` (production inference). Note: ML-Agents historically
-  shipped its own inference path; we will use Sentis if the project's
-  ML-Agents version supports it, otherwise fall back to the bundled inference.
+- New package dependencies: `com.unity.ml-agents` 4.0.0 (per
+  [ADR-0007](./0007-upgrade-to-unity-6.md)) which natively bundles the
+  Inference Engine 2.2.1 runtime (the rebranded successor to Sentis).
+  No separate `com.unity.sentis` package is required — ML-Agents 4.0.0
+  loads ONNX via the bundled Inference Engine without extra integration.
 - A Python training environment is required (PyTorch + `mlagents` package).
   Training happens outside Unity; inference runs inside Unity from `.onnx`.
 - The trivial-optimum problem (a 20-line if-statement matches the optimal

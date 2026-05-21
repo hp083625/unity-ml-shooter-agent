@@ -47,21 +47,32 @@ See ADRs:
 - [ADR-0004: Train in a separate scene with parallel training areas](./docs/adr/0004-parallel-training-scene.md)
 - [ADR-0005: Agent drives Character via minimal public setters](./docs/adr/0005-agent-drives-character-via-setters.md)
 - [ADR-0006: Scoped service locator (per-area, with global fallback)](./docs/adr/0006-scoped-service-locator.md)
+- [ADR-0007: Upgrade project to Unity 6 + ML-Agents Release 23](./docs/adr/0007-upgrade-to-unity-6.md)
 
 ## Operational notes (reversible, not ADR-worthy)
 
 - **Training host:** local Mac, native Python venv, CPU. Escalate to cloud
   GPU only if Phase-3 training exceeds a few hours.
-- **Observation design:** `RayPerceptionSensor3D` configured as a 2D grid
-  (`RaysPerDirection: 8` → 17 horizontal rays, `StackedRaycasts: 3` vertical
-  layers, **51 rays total**), detecting tags `Target` / `Wall` /
-  `ExplosiveBarrel`, max distance 50m. Plus ~6 scalar floats: agent velocity
+- **Pinned versions** (per [ADR-0007](./docs/adr/0007-upgrade-to-unity-6.md)):
+  Unity 6 LTS (6000.0.x), `com.unity.ml-agents` 4.0.0, `mlagents` Python 1.1.0,
+  Python 3.10.12, PyTorch ~=2.2.1, Inference Engine 2.2.1 (bundled with
+  ML-Agents).
+- **Observation design:** **three** `RayPerceptionSensorComponent3D`
+  components on the Agent (one per vertical layer) — each configured with
+  `RaysPerDirection: 8` (= 17 horizontal rays per layer), different
+  `StartVerticalOffset` / `EndVerticalOffset` to span pitch ±~15°,
+  `RayLength: 50`, `DetectableTags: ["Target","Wall","ExplosiveBarrel"]`,
+  `UseBatchedRaycasts: true` (Job System). **51 rays total, 3 sensors,
+  ~255 ray-observation floats.** *Note:* `ObservationStacks` is a
+  *temporal* stacking parameter (memory of past frames) — unrelated to
+  vertical layers; we leave it at 1. Plus ~6 scalar floats: agent velocity
   (xz, 2), yaw+pitch encoded as sin/cos (4), ammo fraction (1),
   targets-remaining fraction (1). Camera pixels are *not* used.
 - **"AI vision" debug overlay:** small in-game HUD `RawImage` (17×3 pixels,
   point-filtered, scaled up) that paints what the rays hit. Hue = tag (red
   Target, gray Wall, orange ExplosiveBarrel), brightness = closeness, black
-  = no hit. Reads from the live sensor; not a separate observation.
+  = no hit. Reads from **all three** sensor components (one row per
+  component); not a separate observation.
 - **Reward signals (in PPO config YAML):** `extrinsic` (strength 1.0,
   gamma 0.99) for the hand-designed reward in ADR-0003 + `curiosity`
   intrinsic signal (strength ~0.02, gamma 0.99) for exploration in the
