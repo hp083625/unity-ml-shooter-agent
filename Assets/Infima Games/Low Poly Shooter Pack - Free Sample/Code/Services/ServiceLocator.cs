@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace InfimaGames.LowPolyShooterPack
 {
@@ -19,6 +20,37 @@ namespace InfimaGames.LowPolyShooterPack
         public static ServiceLocator Current { get; private set; }
 
         public static void Initialize() { Current = new ServiceLocator(); }
+
+        /// <summary>
+        /// Returns the area-scoped <see cref="ServiceLocator"/> for the given caller, walking up the
+        /// caller's transform parent chain looking for an <see cref="AreaServiceLocator"/>. If one is
+        /// found, its private locator is returned. Otherwise (no ancestor has one, or <paramref name="caller"/>
+        /// is null), the global <see cref="Current"/> locator is returned.
+        /// </summary>
+        /// <remarks>
+        /// Per ADR-0006: lets parallel training areas (each with their own <see cref="AreaServiceLocator"/>
+        /// at the prefab root) coexist in one scene with isolated services, while non-training scenes that
+        /// have no <c>AreaServiceLocator</c> ancestor continue to resolve through <see cref="Current"/>
+        /// unchanged.
+        /// </remarks>
+        /// <param name="caller">The MonoBehaviour requesting the locator. May be null.</param>
+        /// <returns>The nearest area locator on the parent chain, or <see cref="Current"/> as a fallback.</returns>
+        public static ServiceLocator For(MonoBehaviour caller)
+        {
+            if (caller == null)
+                return Current;
+
+            //Walk up the transform parent chain looking for an AreaServiceLocator.
+            for (Transform t = caller.transform; t != null; t = t.parent)
+            {
+                AreaServiceLocator area = t.GetComponent<AreaServiceLocator>();
+                if (area != null && area.Locator != null)
+                    return area.Locator;
+            }
+
+            //None found — fall back to the global locator.
+            return Current;
+        }
 
         /// <summary>
         /// Gets the service instance of the given type.
