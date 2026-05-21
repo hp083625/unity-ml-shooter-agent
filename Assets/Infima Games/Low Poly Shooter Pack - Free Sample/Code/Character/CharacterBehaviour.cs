@@ -110,5 +110,32 @@ namespace InfimaGames.LowPolyShooterPack
         public abstract void AnimationEndedHolster();
 
         #endregion
+
+        #region AI INPUT
+
+        /// <summary>
+        /// Sets the synthetic look axis fed by an AI agent.
+        /// Per ADR-0005: the agent supplies (yaw_delta, pitch_delta) already scaled to degrees/decision-step.
+        /// </summary>
+        public abstract void SetAxisLook(Vector2 value);
+
+        /// <summary>
+        /// Sets the synthetic movement axis fed by an AI agent.
+        /// Per ADR-0005: passed straight through; Movement applies its own speedWalking scaling.
+        /// </summary>
+        public abstract void SetAxisMovement(Vector2 value);
+
+        /// <summary>
+        /// Sets whether the AI agent is holding the fire button.
+        /// </summary>
+        public abstract void SetHoldingButtonFire(bool value);
+
+        /// <summary>
+        /// Toggles AI input mode. When true, Input System callbacks early-return and the
+        /// Set* methods above are the sole source of look/move/fire intent. Per ADR-0005.
+        /// </summary>
+        public abstract void SetUseAIInput(bool value);
+
+        #endregion
     }
 }
