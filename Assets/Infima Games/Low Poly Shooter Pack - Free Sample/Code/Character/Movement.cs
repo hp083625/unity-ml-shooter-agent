@@ -36,9 +36,9 @@ namespace InfimaGames.LowPolyShooterPack
         private Vector3 Velocity
         {
             //Getter.
-            get => rigidBody.velocity;
+            get => rigidBody.linearVelocity;
             //Setter.
-            set => rigidBody.velocity = value;
+            set => rigidBody.linearVelocity = value;
         }
 
         #endregion
@@ -187,7 +187,7 @@ namespace InfimaGames.LowPolyShooterPack
         private void PlayFootstepSounds()
         {
             //Check if we're moving on the ground. We don't need footsteps in the air.
-            if (grounded && rigidBody.velocity.sqrMagnitude > 0.1f)
+            if (grounded && rigidBody.linearVelocity.sqrMagnitude > 0.1f)
             {
                 //Select the correct audio clip to play.
                 audioSource.clip = playerCharacter.IsRunning() ? audioClipRunning : audioClipWalking;
