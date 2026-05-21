@@ -37,6 +37,11 @@
 .idea/
 .vscode/
 
+# Python tooling (training venv)
+tools/training/.venv/
+__pycache__/
+*.pyc
+
 # Builds
 *.apk
 *.aab
