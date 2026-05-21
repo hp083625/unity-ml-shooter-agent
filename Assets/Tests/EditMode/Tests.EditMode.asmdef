@@ -3,7 +3,9 @@
     "rootNamespace": "Tests.EditMode",
     "references": [
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "UnityMLShooter.Agent",
+        "UnityMLShooter.Agent.UI"
     ],
     "includePlatforms": [
         "Editor"
