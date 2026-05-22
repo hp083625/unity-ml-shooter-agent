@@ -1,0 +1,16 @@
+{
+    "name": "UnityMLShooter.Agent.UI",
+    "rootNamespace": "UnityMLShooter.Agent.UI",
+    "references": [
+        "Unity.ML-Agents"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
