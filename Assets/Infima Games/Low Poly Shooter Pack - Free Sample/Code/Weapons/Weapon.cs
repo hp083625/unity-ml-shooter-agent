@@ -245,16 +245,17 @@ namespace InfimaGames.LowPolyShooterPack
             if (didHit)
                 rotation = Quaternion.LookRotation(hit.point - muzzleSocket.position);
 
-            //Notify listeners (e.g. the ML agent's reward function per ADR-0003)
-            //about this shot so they can score wasted vs. on-target hits.
-            RaycastHit? maybeHit = didHit ? (RaycastHit?)hit : null;
-            bool isTarget = didHit && hit.collider != null && hit.collider.CompareTag("Target");
-            OnFired?.Invoke(maybeHit, isTarget);
-
             //Spawn projectile from the projectile spawn point.
             GameObject projectile = Instantiate(prefabProjectile, muzzleSocket.position, rotation);
             //Add velocity to the projectile.
-            projectile.GetComponent<Rigidbody>().linearVelocity = projectile.transform.forward * projectileImpulse;   
+            projectile.GetComponent<Rigidbody>().linearVelocity = projectile.transform.forward * projectileImpulse;
+
+            //Notify listeners (e.g. the ML agent's reward function per ADR-0003)
+            //about this shot so they can score wasted vs. on-target hits. Fired at
+            //the end of Fire() per issue #10, after side effects are complete.
+            RaycastHit? maybeHit = didHit ? (RaycastHit?)hit : null;
+            bool isTarget = didHit && hit.collider != null && hit.collider.CompareTag("Target");
+            OnFired?.Invoke(maybeHit, isTarget);
         }
 
         public override void FillAmmunition(int amount)
