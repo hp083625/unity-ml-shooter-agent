@@ -163,6 +163,19 @@ namespace InfimaGames.LowPolyShooterPack
 
         #endregion
 
+        #region EVENTS
+
+        /// <summary>
+        /// Raised after every shot fired by this weapon. The first argument is
+        /// the raycast hit (null when the shot hit nothing within range or the
+        /// firing pipeline produced no hit). The second argument is true iff
+        /// the hit collider's tag is "Target". Consumed by the ML agent's
+        /// reward function (see ADR-0003) to detect wasted shots.
+        /// </summary>
+        public event System.Action<RaycastHit?, bool> OnFired;
+
+        #endregion
+
         #region GETTERS
 
         public override Animator GetAnimator() => animator;
@@ -227,14 +240,22 @@ namespace InfimaGames.LowPolyShooterPack
             Quaternion rotation = Quaternion.LookRotation(playerCamera.forward * 1000.0f - muzzleSocket.position);
             
             //If there's something blocking, then we can aim directly at that thing, which will result in more accurate shooting.
-            if (Physics.Raycast(new Ray(playerCamera.position, playerCamera.forward),
-                out RaycastHit hit, maximumDistance, mask))
+            bool didHit = Physics.Raycast(new Ray(playerCamera.position, playerCamera.forward),
+                out RaycastHit hit, maximumDistance, mask);
+            if (didHit)
                 rotation = Quaternion.LookRotation(hit.point - muzzleSocket.position);
-                
+
             //Spawn projectile from the projectile spawn point.
             GameObject projectile = Instantiate(prefabProjectile, muzzleSocket.position, rotation);
             //Add velocity to the projectile.
-            projectile.GetComponent<Rigidbody>().linearVelocity = projectile.transform.forward * projectileImpulse;   
+            projectile.GetComponent<Rigidbody>().linearVelocity = projectile.transform.forward * projectileImpulse;
+
+            //Notify listeners (e.g. the ML agent's reward function per ADR-0003)
+            //about this shot so they can score wasted vs. on-target hits. Fired at
+            //the end of Fire() per issue #10, after side effects are complete.
+            RaycastHit? maybeHit = didHit ? (RaycastHit?)hit : null;
+            bool isTarget = didHit && hit.collider != null && hit.collider.CompareTag("Target");
+            OnFired?.Invoke(maybeHit, isTarget);
         }
 
         public override void FillAmmunition(int amount)
