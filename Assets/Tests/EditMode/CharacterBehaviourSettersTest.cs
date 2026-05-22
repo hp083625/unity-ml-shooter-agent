@@ -78,20 +78,20 @@ namespace Tests.EditMode
         }
 
         [Test]
-        public void SetHoldingButtonFire_AbstractMethodExistsWithBoolParameter()
+        public void SetHoldingFire_AbstractMethodExistsWithBoolParameter()
         {
             var t = ResolveCharacterBehaviour();
-            var m = GetDeclaredMethod(t, "SetHoldingButtonFire");
+            var m = GetDeclaredMethod(t, "SetHoldingFire");
 
-            Assert.IsNotNull(m, "SetHoldingButtonFire must be declared on CharacterBehaviour.");
-            Assert.IsTrue(m.IsAbstract, "SetHoldingButtonFire must be abstract.");
-            Assert.IsTrue(m.IsPublic, "SetHoldingButtonFire must be public.");
-            Assert.AreEqual(typeof(void), m.ReturnType, "SetHoldingButtonFire must return void.");
+            Assert.IsNotNull(m, "SetHoldingFire must be declared on CharacterBehaviour.");
+            Assert.IsTrue(m.IsAbstract, "SetHoldingFire must be abstract.");
+            Assert.IsTrue(m.IsPublic, "SetHoldingFire must be public.");
+            Assert.AreEqual(typeof(void), m.ReturnType, "SetHoldingFire must return void.");
 
             var parameters = m.GetParameters();
-            Assert.AreEqual(1, parameters.Length, "SetHoldingButtonFire must take exactly one parameter.");
+            Assert.AreEqual(1, parameters.Length, "SetHoldingFire must take exactly one parameter.");
             Assert.AreEqual(typeof(bool), parameters[0].ParameterType,
-                "SetHoldingButtonFire parameter must be System.Boolean.");
+                "SetHoldingFire parameter must be System.Boolean.");
         }
 
         [Test]

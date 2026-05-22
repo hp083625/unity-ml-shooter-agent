@@ -128,7 +128,7 @@ namespace InfimaGames.LowPolyShooterPack
         /// <summary>
         /// Sets whether the AI agent is holding the fire button.
         /// </summary>
-        public abstract void SetHoldingButtonFire(bool value);
+        public abstract void SetHoldingFire(bool held);
 
         /// <summary>
         /// Toggles AI input mode. When true, Input System callbacks early-return and the
