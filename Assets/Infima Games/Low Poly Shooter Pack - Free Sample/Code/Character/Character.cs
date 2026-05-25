@@ -39,10 +39,16 @@ namespace InfimaGames.LowPolyShooterPack
 		private float dampTimeAiming = 0.3f;
 		
 		[Header("Animation Procedural")]
-		
+
 		[Tooltip("Character Animator.")]
 		[SerializeField]
 		private Animator characterAnimator;
+
+		[Header("AI")]
+
+		[Tooltip("If true, Input System callbacks are suppressed and the SetAxis*/SetHoldingFire setters are the sole source of look/move/fire intent. Per ADR-0005.")]
+		[SerializeField]
+		private bool useAIInput = false;
 
 		#endregion
 
@@ -561,6 +567,10 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryFire(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
@@ -606,10 +616,14 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryPlayReload(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
-			
+
 			//Block.
 			if (!CanPlayAnimationReload())
 				return;
@@ -630,10 +644,14 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryInspect(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
-			
+
 			//Block.
 			if (!CanPlayAnimationInspect())
 				return;
@@ -653,6 +671,10 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryAiming(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
@@ -676,10 +698,14 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryHolster(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
-			
+
 			//Switch.
 			switch (context.phase)
 			{
@@ -701,10 +727,14 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryRun(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
-			
+
 			//Switch.
 			switch (context.phase)
 			{
@@ -725,10 +755,14 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnTryInventoryNext(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Block while the cursor is unlocked.
 			if (!cursorLocked)
 				return;
-			
+
 			//Null Check.
 			if (inventory == null)
 				return;
@@ -774,6 +808,10 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnMove(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Read.
 			axisMovement = cursorLocked ? context.ReadValue<Vector2>() : default;
 		}
@@ -782,6 +820,10 @@ namespace InfimaGames.LowPolyShooterPack
 		/// </summary>
 		public void OnLook(InputAction.CallbackContext context)
 		{
+			//Block while AI input is active.
+			if (useAIInput)
+				return;
+
 			//Read.
 			axisLook = cursorLocked ? context.ReadValue<Vector2>() : default;
 		}
@@ -801,6 +843,48 @@ namespace InfimaGames.LowPolyShooterPack
 				//Default.
 				_ => tutorialTextVisible
 			};
+		}
+
+		#endregion
+
+		#region AI INPUT
+
+		public override void SetAxisLook(Vector2 value)
+		{
+			//Set the synthetic look axis. Per ADR-0005, the agent supplies (yaw, pitch) deltas pre-scaled.
+			axisLook = value;
+		}
+
+		public override void SetAxisMovement(Vector2 value)
+		{
+			//Set the synthetic movement axis. Per ADR-0005, passed straight through to Movement.
+			axisMovement = value;
+		}
+
+		public override void SetHoldingFire(bool held)
+		{
+			//Set whether the AI agent is holding the fire button.
+			holdingButtonFire = held;
+		}
+
+		public override void SetUseAIInput(bool value)
+		{
+			//If we are entering AI mode while a human key/button is still held, the
+			//newly-installed gate would suppress the upcoming Input System cancel
+			//callback and leave stale state moving/firing/running under AI control.
+			//Clear all human-driven input state on the false -> true transition so
+			//AI input starts from a known-zero baseline.
+			if (value && !useAIInput)
+			{
+				axisLook = default;
+				axisMovement = default;
+				holdingButtonFire = false;
+				holdingButtonAim = false;
+				holdingButtonRun = false;
+			}
+
+			//Toggle AI input mode. When true, Input System callbacks early-return.
+			useAIInput = value;
 		}
 
 		#endregion
