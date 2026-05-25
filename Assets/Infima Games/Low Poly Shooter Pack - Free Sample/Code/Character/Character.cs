@@ -869,6 +869,20 @@ namespace InfimaGames.LowPolyShooterPack
 
 		public override void SetUseAIInput(bool value)
 		{
+			//If we are entering AI mode while a human key/button is still held, the
+			//newly-installed gate would suppress the upcoming Input System cancel
+			//callback and leave stale state moving/firing/running under AI control.
+			//Clear all human-driven input state on the false -> true transition so
+			//AI input starts from a known-zero baseline.
+			if (value && !useAIInput)
+			{
+				axisLook = default;
+				axisMovement = default;
+				holdingButtonFire = false;
+				holdingButtonAim = false;
+				holdingButtonRun = false;
+			}
+
 			//Toggle AI input mode. When true, Input System callbacks early-return.
 			useAIInput = value;
 		}
