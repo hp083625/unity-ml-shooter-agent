@@ -38,7 +38,7 @@ namespace InfimaGames.LowPolyShooterPack
     {
         #region FIELDS SERIALIZED
 
-        [Tooltip("Player rig's CharacterBehaviour. Used for ammo refill via GetInventory().GetEquipped().FillAmmunition(-1).")]
+        [Tooltip("Player rig's CharacterBehaviour. Used for ammo refill via Character.FillAmmunition(0). The 0 sentinel fills to magazine total per Weapon.FillAmmunition semantics.")]
         [SerializeField] private CharacterBehaviour character;
 
         [Tooltip("The area's TargetWaveManager (UnityMLShooter.Agent assembly). ResetArea calls ResetWave() on this.")]
@@ -102,10 +102,11 @@ namespace InfimaGames.LowPolyShooterPack
         ///   <see cref="Rigidbody.linearVelocity"/> and
         ///   <see cref="Rigidbody.angularVelocity"/>, and rotate it via
         ///   <see cref="Rigidbody.MoveRotation(Quaternion)"/>.</item>
-        ///   <item>Refill ammo via the public chain
-        ///   <c>character.GetInventory().GetEquipped().FillAmmunition(-1)</c>.
-        ///   The <c>-1</c> is the "fill to magazine total" sentinel per
-        ///   <c>Weapon.FillAmmunition</c> semantics.</item>
+        ///   <item>Refill ammo via <c>character.FillAmmunition(0)</c>. The
+        ///   <c>0</c> is the "fill to magazine total" sentinel per
+        ///   <c>Weapon.FillAmmunition</c> semantics (any non-zero amount is
+        ///   added to current ammo and clamped, so passing <c>-1</c> would
+        ///   actually subtract one round).</item>
         ///   <item>Reset all targets via <c>targetWaveManager.ResetWave()</c>.</item>
         /// </list>
         ///
@@ -176,25 +177,12 @@ namespace InfimaGames.LowPolyShooterPack
             }
             else
             {
-                InventoryBehaviour inventory = character.GetInventory();
-                if (inventory == null)
-                {
-                    Log.warn_me($"{nameof(AgentArea)}.{nameof(ResetArea)}: character.GetInventory() returned null — skipping ammo refill.");
-                }
-                else
-                {
-                    WeaponBehaviour equipped = inventory.GetEquipped();
-                    if (equipped == null)
-                    {
-                        Log.warn_me($"{nameof(AgentArea)}.{nameof(ResetArea)}: inventory.GetEquipped() returned null — skipping ammo refill.");
-                    }
-                    else
-                    {
-                        // -1 is the documented "fill to magazine total"
-                        // sentinel per Weapon.FillAmmunition.
-                        equipped.FillAmmunition(-1);
-                    }
-                }
+                // 0 is the documented "fill to magazine total" sentinel per
+                // Weapon.FillAmmunition (`amount != 0 ? clamp(current + amount)
+                // : magazineTotal`). Use Character's own FillAmmunition wrapper
+                // which already null-guards on equippedWeapon, instead of
+                // walking the GetInventory().GetEquipped() chain ourselves.
+                character.FillAmmunition(0);
             }
 
             //
