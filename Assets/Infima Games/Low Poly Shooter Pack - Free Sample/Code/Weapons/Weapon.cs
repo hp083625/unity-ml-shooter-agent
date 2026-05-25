@@ -140,7 +140,7 @@ namespace InfimaGames.LowPolyShooterPack
             attachmentManager = GetComponent<WeaponAttachmentManagerBehaviour>();
 
             //Cache the game mode service. We only need this right here, but we'll cache it in case we ever need it again.
-            gameModeService = ServiceLocator.Current.Get<IGameModeService>();
+            gameModeService = ServiceLocator.For(this).Get<IGameModeService>();
             //Cache the player character.
             characterBehaviour = gameModeService.GetPlayerCharacter();
             //Cache the world camera. We use this in line traces.

@@ -58,7 +58,7 @@ namespace InfimaGames.LowPolyShooterPack
         private void Awake()
         {
             //Get Player Character.
-            playerCharacter = ServiceLocator.Current.Get<IGameModeService>().GetPlayerCharacter();
+            playerCharacter = ServiceLocator.For(this).Get<IGameModeService>().GetPlayerCharacter();
             //Cache the rigidbody.
             playerCharacterRigidbody = playerCharacter.GetComponent<Rigidbody>();
         }
