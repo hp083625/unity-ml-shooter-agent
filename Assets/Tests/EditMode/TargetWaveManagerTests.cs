@@ -277,5 +277,89 @@ namespace Tests.EditMode
 
             Assert.DoesNotThrow(() => manager.ResetWave(), "Empty hierarchy → ResetWave must be a safe no-op.");
         }
+
+        // ------------------------------------------------------------------
+        // Codex review (PR #43): TargetScript's private routineStarted flag
+        // must be reset by ResetWave. Otherwise, after a hit + reset cycle,
+        // TargetScript.Update sees routineStarted == true and the down/repop
+        // block never runs again — the target stays "up" but never plays
+        // the down animation on a subsequent hit.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void ResetWave_ClearsRoutineStartedFlag()
+        {
+            RequireTargetScript();
+
+            var routineField = TargetScriptType.GetField(
+                "routineStarted",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(routineField,
+                "TargetScript.routineStarted field must exist for this test to be meaningful.");
+
+            var manager = MakeManager();
+            var target = MakeTarget(Vector3.zero, isHit: true);
+            // Simulate a target whose down/repop coroutine had already started.
+            routineField.SetValue(target, true);
+
+            manager.InjectTargetsForTesting(new List<MonoBehaviour> { target });
+            manager.ResetWave();
+
+            Assert.IsFalse((bool)routineField.GetValue(target),
+                "ResetWave must clear TargetScript.routineStarted so subsequent hits can drive the down/repop flow.");
+        }
+
+        // ------------------------------------------------------------------
+        // Codex review (PR #43): TargetScript.DelayTimer's eventual
+        // `isHit = false` line conflicts with the "clear all targets once per
+        // episode" lifecycle. The manager must suppress the built-in repop
+        // by stopping the target's coroutines on every Update tick where
+        // isHit == true, so DelayTimer can never run to completion within
+        // an episode. Targets stay down until ResetWave().
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void Update_StopsCoroutinesOnHitTargetsToSuppressRepop()
+        {
+            RequireTargetScript();
+
+            var manager = MakeManager();
+            var target = MakeTarget(Vector3.zero, isHit: false);
+            manager.InjectTargetsForTesting(new List<MonoBehaviour> { target });
+
+            // Reflectively call the manager's Update so we can drive the
+            // rising-edge / coroutine-stop path deterministically without
+            // a real Unity tick.
+            var updateMethod = typeof(TargetWaveManager).GetMethod(
+                "Update", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(updateMethod, "TargetWaveManager.Update must exist.");
+
+            // Tick 1: target is unhit; manager stores baseline.
+            updateMethod.Invoke(manager, null);
+
+            // Tick 2: simulate a hit, then drive Update.
+            SetIsHit(target, true);
+            int handlerCalls = 0;
+            manager.TargetHit += _ => handlerCalls++;
+            updateMethod.Invoke(manager, null);
+
+            Assert.AreEqual(1, handlerCalls, "TargetHit must fire exactly once on the rising-edge tick.");
+
+            // The acceptance for this fix: after ticking with isHit==true,
+            // the target's coroutines are stopped. We can't directly observe
+            // "no coroutines running" without spinning up a real Editor frame,
+            // but we CAN observe that even if TargetScript later runs Update
+            // and starts DelayTimer, the manager's Update will stop it on the
+            // next tick. Drive Update again — should remain at 1 handler call
+            // and isHit must still be true (not flipped back to false by a
+            // sneaky DelayTimer run).
+            updateMethod.Invoke(manager, null);
+            updateMethod.Invoke(manager, null);
+
+            Assert.IsTrue(GetIsHit(target),
+                "isHit must remain true across multiple Update ticks; DelayTimer's revival must be suppressed.");
+            Assert.AreEqual(1, handlerCalls,
+                "TargetHit must NOT fire a second time across additional Updates while the target stays hit.");
+        }
     }
 }

@@ -57,6 +57,7 @@ namespace UnityMLShooter.Agent
         private static Type _targetScriptType;
         private static FieldInfo _isHitField;
         private static FieldInfo _targetUpField;
+        private static FieldInfo _routineStartedField;
 
         /// <summary>Number of targets that have <c>isHit == false</c>.</summary>
         public int RemainingCount
@@ -120,6 +121,16 @@ namespace UnityMLShooter.Agent
                     }
                 }
 
+                // Suppress TargetScript's built-in repop: if isHit==true, kill any
+                // ticking DelayTimer so it can never run to its `isHit = false`
+                // revival. Idempotent; covers the race where TargetScript.Update
+                // runs *after* our Update on the rising-edge frame and only then
+                // starts the coroutine. The target stays down until ResetWave().
+                if (currentlyHit && target.gameObject != null)
+                {
+                    target.StopAllCoroutines();
+                }
+
                 _previousIsHit[i] = currentlyHit;
             }
         }
@@ -155,6 +166,13 @@ namespace UnityMLShooter.Agent
                 // isHit must be false BEFORE the up animation plays, otherwise
                 // TargetScript.Update will immediately set it back to "down".
                 WriteIsHit(target, false);
+
+                // Clear TargetScript's private routineStarted flag. Without this,
+                // a target that had been hit before ResetWave keeps routineStarted
+                // == true, and TargetScript.Update's `if (routineStarted == false)`
+                // gate prevents the down/repop block from ever running again — the
+                // target would visually never go down on subsequent hits.
+                WriteRoutineStarted(target, false);
 
                 // Replay the "up" clip directly. Mirrors what TargetScript's
                 // own coroutine does when its timer expires.
@@ -341,6 +359,11 @@ namespace UnityMLShooter.Agent
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
             _isHitField    = _targetScriptType.GetField("isHit",    flags);
             _targetUpField = _targetScriptType.GetField("targetUp", flags);
+
+            // routineStarted is private on TargetScript. We need to reset it during
+            // ResetWave so a previously-hit target's down/repop block can run again.
+            _routineStartedField = _targetScriptType.GetField(
+                "routineStarted", BindingFlags.NonPublic | BindingFlags.Instance);
         }
 
         private static bool ReadIsHit(MonoBehaviour target)
@@ -354,6 +377,12 @@ namespace UnityMLShooter.Agent
         {
             if (_isHitField == null) return;
             _isHitField.SetValue(target, value);
+        }
+
+        private static void WriteRoutineStarted(MonoBehaviour target, bool value)
+        {
+            if (_routineStartedField == null) return;
+            _routineStartedField.SetValue(target, value);
         }
     }
 }
